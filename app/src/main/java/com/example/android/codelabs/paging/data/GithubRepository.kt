@@ -34,17 +34,18 @@ private const val GITHUB_STARTING_PAGE_INDEX = 1
  */
 class GithubRepository(private val service: GithubService) {
 
-    // keep the list of all results received
+    companion object {
+        private const val NETWORK_PAGE_SIZE = 50
+    }
+
     private val inMemoryCache = mutableListOf<Repo>()
 
     // shared flow of results, which allows us to broadcast updates so
     // the subscriber will have the latest data
     private val searchResults = MutableSharedFlow<RepoSearchResult>(replay = 1)
 
-    // keep the last requested page. When the request is successful, increment the page number.
     private var lastRequestedPage = GITHUB_STARTING_PAGE_INDEX
 
-    // avoid triggering multiple requests in the same time
     private var isRequestInProgress = false
 
     /**
@@ -56,16 +57,13 @@ class GithubRepository(private val service: GithubService) {
         lastRequestedPage = 1
         inMemoryCache.clear()
         requestAndSaveData(query)
-
         return searchResults
     }
 
     suspend fun requestMore(query: String) {
         if (isRequestInProgress) return
         val successful = requestAndSaveData(query)
-        if (successful) {
-            lastRequestedPage++
-        }
+        if (successful) lastRequestedPage++
     }
 
     suspend fun retry(query: String) {
@@ -83,28 +81,27 @@ class GithubRepository(private val service: GithubService) {
             Log.d("GithubRepository", "response $response")
             val repos = response.items ?: emptyList()
             inMemoryCache.addAll(repos)
-            val reposByName = reposByName(query)
-            searchResults.emit(RepoSearchResult.Success(reposByName))
+            val filteredRepos = filterRepos(query)
+            searchResults.emit(RepoSearchResult.Success(filteredRepos))
             successful = true
-        } catch (exception: IOException) {
-            searchResults.emit(RepoSearchResult.Error(exception))
-        } catch (exception: HttpException) {
-            searchResults.emit(RepoSearchResult.Error(exception))
+        } catch (e: IOException) {
+            searchResults.emit(RepoSearchResult.Error(e))
+        } catch (e: HttpException) {
+            searchResults.emit(RepoSearchResult.Error(e))
         }
         isRequestInProgress = false
         return successful
     }
 
-    private fun reposByName(query: String): List<Repo> {
-        // from the in memory cache select only the repos whose name or description matches
-        // the query. Then order the results.
+    private fun filterRepos(query: String): List<Repo> {
         return inMemoryCache.filter {
-            it.name.contains(query, true) ||
-                (it.description != null && it.description.contains(query, true))
+            filterRepo(it, query)
         }.sortedWith(compareByDescending<Repo> { it.stars }.thenBy { it.name })
     }
 
-    companion object {
-        private const val NETWORK_PAGE_SIZE = 50
+    private fun filterRepo(repo: Repo, query: String): Boolean {
+        return repo.name.contains(query, true) ||
+                (repo.description != null && repo.description.contains(query, true))
     }
+
 }
