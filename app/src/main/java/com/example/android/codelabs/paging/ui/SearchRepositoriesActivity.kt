@@ -33,40 +33,65 @@ import com.example.android.codelabs.paging.model.RepoSearchResult
 
 class SearchRepositoriesActivity : AppCompatActivity() {
 
+    companion object {
+        private const val LAST_SEARCH_QUERY: String = "last_search_query"
+        private const val DEFAULT_QUERY = "Android"
+    }
+
     private lateinit var binding: ActivitySearchRepositoriesBinding
     private lateinit var viewModel: SearchRepositoriesViewModel
     private val adapter = ReposAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySearchRepositoriesBinding.inflate(layoutInflater)
-        val view = binding.root
-        setContentView(view)
+        setupViewBinding()
+        initViewModel()
 
-        // get the view model
-        viewModel = ViewModelProvider(this, Injection.provideViewModelFactory())
-            .get(SearchRepositoriesViewModel::class.java)
-
-        // add dividers between RecyclerView's row items
-        val decoration = DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
-        binding.list.addItemDecoration(decoration)
+        addListDecoration()
         setupScrollListener()
-
         initAdapter()
-        val query = savedInstanceState?.getString(LAST_SEARCH_QUERY) ?: DEFAULT_QUERY
-        if (viewModel.repoResult.value == null) {
-            viewModel.searchRepo(query)
-        }
+
+        observeLiveData()
+
+        val query = restoreLatestQuery(savedInstanceState)
+        restoreLatestSearch(query)
         initSearch(query)
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putString(LAST_SEARCH_QUERY, binding.searchRepo.text.trim().toString())
+    private fun setupViewBinding() {
+        binding = ActivitySearchRepositoriesBinding.inflate(layoutInflater)
+        val view = binding.root
+        setContentView(view)
+    }
+
+    private fun initViewModel() {
+        viewModel = ViewModelProvider(this, Injection.provideViewModelFactory())
+                .get(SearchRepositoriesViewModel::class.java)
+    }
+
+    private fun addListDecoration() {
+        val decoration = DividerItemDecoration(this, DividerItemDecoration.VERTICAL)
+        binding.list.addItemDecoration(decoration)
+    }
+
+    private fun setupScrollListener() {
+        val layoutManager = binding.list.layoutManager as LinearLayoutManager
+        binding.list.addOnScrollListener(object : OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val totalItemCount = layoutManager.itemCount
+                val visibleItemCount = layoutManager.childCount
+                val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
+                viewModel.listScrolled(visibleItemCount, lastVisibleItem, totalItemCount)
+            }
+        })
     }
 
     private fun initAdapter() {
         binding.list.adapter = adapter
+    }
+
+    private fun observeLiveData() {
         viewModel.repoResult.observe(this) { result ->
             when (result) {
                 is RepoSearchResult.Success -> {
@@ -75,18 +100,42 @@ class SearchRepositoriesActivity : AppCompatActivity() {
                 }
                 is RepoSearchResult.Error -> {
                     Toast.makeText(
-                        this,
-                        "\uD83D\uDE28 Wooops $result.message}",
-                        Toast.LENGTH_LONG
+                            this,
+                            "\uD83D\uDE28 Wooops $result.message}",
+                            Toast.LENGTH_LONG
                     ).show()
                 }
             }
         }
     }
 
+    private fun showEmptyList(show: Boolean) {
+        if (show) {
+            binding.emptyList.visibility = View.VISIBLE
+            binding.list.visibility = View.GONE
+        } else {
+            binding.emptyList.visibility = View.GONE
+            binding.list.visibility = View.VISIBLE
+        }
+    }
+
+    private fun restoreLatestQuery(savedInstanceState: Bundle?): String {
+        return savedInstanceState?.getString(LAST_SEARCH_QUERY) ?: DEFAULT_QUERY
+    }
+
+    private fun restoreLatestSearch(query: String) {
+        if (viewModel.repoResult.value == null) {
+            viewModel.searchRepo(query)
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(LAST_SEARCH_QUERY, binding.searchRepo.text.trim().toString())
+    }
+
     private fun initSearch(query: String) {
         binding.searchRepo.setText(query)
-
         binding.searchRepo.setOnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_GO) {
                 updateRepoListFromInput()
@@ -114,32 +163,4 @@ class SearchRepositoriesActivity : AppCompatActivity() {
         }
     }
 
-    private fun showEmptyList(show: Boolean) {
-        if (show) {
-            binding.emptyList.visibility = View.VISIBLE
-            binding.list.visibility = View.GONE
-        } else {
-            binding.emptyList.visibility = View.GONE
-            binding.list.visibility = View.VISIBLE
-        }
-    }
-
-    private fun setupScrollListener() {
-        val layoutManager = binding.list.layoutManager as LinearLayoutManager
-        binding.list.addOnScrollListener(object : OnScrollListener() {
-            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                val totalItemCount = layoutManager.itemCount
-                val visibleItemCount = layoutManager.childCount
-                val lastVisibleItem = layoutManager.findLastVisibleItemPosition()
-
-                viewModel.listScrolled(visibleItemCount, lastVisibleItem, totalItemCount)
-            }
-        })
-    }
-
-    companion object {
-        private const val LAST_SEARCH_QUERY: String = "last_search_query"
-        private const val DEFAULT_QUERY = "Android"
-    }
 }
