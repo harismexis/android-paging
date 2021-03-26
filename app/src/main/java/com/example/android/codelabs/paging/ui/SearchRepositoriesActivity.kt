@@ -92,16 +92,16 @@ class SearchRepositoriesActivity : AppCompatActivity() {
     }
 
     private fun observeLiveData() {
-        viewModel.repoResult.observe(this) { searchResult ->
-            when (searchResult) {
+        viewModel.repoResult.observe(this) { repoSearchResult ->
+            when (repoSearchResult) {
                 is RepoSearchResult.Success -> {
-                    showEmptyList(searchResult.data.isEmpty())
-                    adapter.submitList(searchResult.data)
+                    showEmptyList(repoSearchResult.data.isEmpty())
+                    adapter.submitList(repoSearchResult.data)
                 }
                 is RepoSearchResult.Error -> {
                     Toast.makeText(
                             this,
-                            "\uD83D\uDE28 Wooops $searchResult.message}",
+                            "\uD83D\uDE28 Wooops $repoSearchResult.message}",
                             Toast.LENGTH_LONG
                     ).show()
                 }

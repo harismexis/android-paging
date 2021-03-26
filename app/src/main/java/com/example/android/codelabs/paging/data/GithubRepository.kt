@@ -56,22 +56,22 @@ class GithubRepository(private val service: GithubService) {
         Log.d("GithubRepository", "New query: $query")
         lastRequestedPage = 1
         inMemoryCache.clear()
-        requestAndSaveData(query)
+        fetchRepos(query)
         return searchResults
     }
 
     suspend fun requestMore(query: String) {
         if (isRequestInProgress) return
-        val successful = requestAndSaveData(query)
+        val successful = fetchRepos(query)
         if (successful) lastRequestedPage++
     }
 
     suspend fun retry(query: String) {
         if (isRequestInProgress) return
-        requestAndSaveData(query)
+        fetchRepos(query)
     }
 
-    private suspend fun requestAndSaveData(query: String): Boolean {
+    private suspend fun fetchRepos(query: String): Boolean {
         isRequestInProgress = true
         var successful = false
 

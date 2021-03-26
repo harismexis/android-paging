@@ -21,9 +21,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import com.example.android.codelabs.paging.model.Repo
 
-/**
- * Adapter for the list of repositories.
- */
 class ReposAdapter : ListAdapter<Repo, RepoViewHolder>(REPO_COMPARATOR) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RepoViewHolder {
